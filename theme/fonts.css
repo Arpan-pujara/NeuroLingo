@@ -1,0 +1,15 @@
+/**
+ * Poppins font families for NativeWind utilities.
+ * Load fonts via expo-font (see lib/fonts.ts and app.json).
+ */
+@theme {
+  --font-poppins: "Poppins-Regular";
+  --font-poppins-medium: "Poppins-Medium";
+  --font-poppins-semibold: "Poppins-SemiBold";
+  --font-poppins-bold: "Poppins-Bold";
+  --font-sans: "Poppins-Regular";
+}
+
+:root {
+  --font-sans: "Poppins-Regular";
+}
