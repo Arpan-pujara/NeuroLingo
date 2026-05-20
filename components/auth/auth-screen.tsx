@@ -48,7 +48,8 @@ export function AuthScreen({
   const { width } = useWindowDimensions();
   const {
     isLoading,
-    isLoaded,
+    isAuthLoaded,
+    isResourcesLoaded,
     isSignedIn,
     startEmailVerification,
     verifyEmailCode,
@@ -67,7 +68,7 @@ export function AuthScreen({
   const [verificationVisible, setVerificationVisible] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  if (!isLoaded || isSignedIn) {
+  if (!isAuthLoaded || !isResourcesLoaded || isSignedIn) {
     return (
       <View
         style={{
@@ -219,7 +220,7 @@ export function AuthScreen({
             <Pressable
               accessibilityRole="button"
               className="mt-4 active:opacity-90"
-              disabled={isLoading}
+              disabled={isLoading || !isResourcesLoaded}
               onPress={handlePrimaryPress}
             >
               <View
@@ -227,7 +228,7 @@ export function AuthScreen({
                 style={{
                   experimental_backgroundImage:
                     "linear-gradient(to right, #7C5CFF 0%, #6338FF 100%)",
-                  opacity: isLoading ? 0.7 : 1,
+                  opacity: isLoading || !isResourcesLoaded ? 0.7 : 1,
                 }}
               >
                 {isLoading ? (
@@ -251,15 +252,21 @@ export function AuthScreen({
             <View className="gap-3">
               <SocialAuthButton
                 provider="google"
-                onPress={() => signInWithSocial("google")}
+                onPress={
+                  isResourcesLoaded ? () => signInWithSocial("google") : undefined
+                }
               />
               <SocialAuthButton
                 provider="facebook"
-                onPress={() => signInWithSocial("facebook")}
+                onPress={
+                  isResourcesLoaded ? () => signInWithSocial("facebook") : undefined
+                }
               />
               <SocialAuthButton
                 provider="apple"
-                onPress={() => signInWithSocial("apple")}
+                onPress={
+                  isResourcesLoaded ? () => signInWithSocial("apple") : undefined
+                }
               />
             </View>
 

@@ -25,6 +25,10 @@ const OAUTH_STRATEGIES = {
 
 type FieldErrorLike = { message?: string; longMessage?: string } | null | undefined;
 
+type ResourceGuardResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
 function getClerkFieldMessage(fieldError: FieldErrorLike): string {
   if (!fieldError) {
     return "";
@@ -33,22 +37,80 @@ function getClerkFieldMessage(fieldError: FieldErrorLike): string {
   return fieldError.longMessage ?? fieldError.message ?? "";
 }
 
+function getReturnedErrorMessage(
+  error: { message?: string; longMessage?: string } | null,
+  fallback: string,
+): string {
+  if (!error) {
+    return fallback;
+  }
+
+  return error.longMessage ?? error.message ?? fallback;
+}
+
+function isHookResourceLoaded(
+  hookResult: { isLoaded?: boolean; signIn?: unknown; signUp?: unknown },
+  resourceKey: "signIn" | "signUp",
+): boolean {
+  if (typeof hookResult.isLoaded === "boolean") {
+    return hookResult.isLoaded;
+  }
+
+  return hookResult[resourceKey] != null;
+}
+
+const RESOURCES_LOADING_MESSAGE =
+  "Authentication is still loading. Please wait a moment.";
+
 export function useAuthFlow(mode: AuthMode) {
   const router = useRouter();
-  const { setActive } = useClerk();
-  const { isSignedIn, isLoaded } = useAuth();
-  const { signIn, errors: signInErrors, fetchStatus: signInStatus } = useSignIn();
-  const { signUp, errors: signUpErrors, fetchStatus: signUpStatus } = useSignUp();
+  const { loaded: isClerkLoaded, setActive } = useClerk();
+  const { isSignedIn, isLoaded: isAuthLoaded } = useAuth();
+  const signInState = useSignIn();
+  const signUpState = useSignUp();
   const { startSSOFlow } = useSSO();
   const verifyWithSignInRef = useRef(false);
+  const signInVerifyStepRef = useRef<"first_factor" | "mfa">("first_factor");
+
+  const signIn = signInState.signIn;
+  const signUp = signUpState.signUp;
+  const signInErrors = signInState.errors;
+  const signUpErrors = signUpState.errors;
+  const signInStatus = signInState.fetchStatus;
+  const signUpStatus = signUpState.fetchStatus;
+
+  const isSignInResourceLoaded = isHookResourceLoaded(signInState, "signIn");
+  const isSignUpResourceLoaded = isHookResourceLoaded(signUpState, "signUp");
+  const isResourcesLoaded =
+    isClerkLoaded &&
+    (mode === "sign-in" ? isSignInResourceLoaded : isSignUpResourceLoaded);
 
   const isLoading = signInStatus === "fetching" || signUpStatus === "fetching";
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
+    if (isAuthLoaded && isSignedIn) {
       router.replace("/" as Href);
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isAuthLoaded, isSignedIn, router]);
+
+  const assertResourcesReady = useCallback(
+    (needsSignIn: boolean, needsSignUp: boolean): ResourceGuardResult => {
+      if (!isClerkLoaded) {
+        return { ok: false, message: RESOURCES_LOADING_MESSAGE };
+      }
+
+      if (needsSignIn && !signIn) {
+        return { ok: false, message: RESOURCES_LOADING_MESSAGE };
+      }
+
+      if (needsSignUp && !signUp) {
+        return { ok: false, message: RESOURCES_LOADING_MESSAGE };
+      }
+
+      return { ok: true };
+    },
+    [isClerkLoaded, signIn, signUp],
+  );
 
   const activateSession = useCallback(
     async (sessionId: string | null | undefined) => {
@@ -67,8 +129,14 @@ export function useAuthFlow(mode: AuthMode) {
     async (email: string, password?: string) => {
       try {
         if (mode === "sign-in") {
+          const guard = assertResourcesReady(true, false);
+          if (!guard.ok) {
+            return { ok: false as const, emailError: guard.message };
+          }
+
           verifyWithSignInRef.current = true;
-          const { error } = await signIn.emailCode.sendCode({ emailAddress: email });
+          signInVerifyStepRef.current = "first_factor";
+          const { error } = await signIn!.emailCode.sendCode({ emailAddress: email });
           if (error) {
             return {
               ok: false as const,
@@ -79,23 +147,38 @@ export function useAuthFlow(mode: AuthMode) {
           return { ok: true as const };
         }
 
-        const { error: passwordError } = await signUp.password({
+        const signUpGuard = assertResourcesReady(false, true);
+        if (!signUpGuard.ok) {
+          return { ok: false as const, emailError: signUpGuard.message };
+        }
+
+        const { error: passwordError } = await signUp!.password({
           emailAddress: email,
           password: password ?? "",
         });
 
         if (passwordError) {
+          const message = getReturnedErrorMessage(
+            passwordError,
+            "Could not create account",
+          );
           return {
             ok: false as const,
-            emailError: getClerkFieldMessage(signUpErrors.fields.emailAddress),
-            passwordError: getClerkFieldMessage(signUpErrors.fields.password),
+            emailError: message,
+            passwordError: message,
           };
         }
 
-        if (signUp.isTransferable) {
-          await signUp.reset();
+        if (signUp!.isTransferable) {
+          const signInGuard = assertResourcesReady(true, false);
+          if (!signInGuard.ok) {
+            return { ok: false as const, emailError: signInGuard.message };
+          }
+
+          await signUp!.reset();
           verifyWithSignInRef.current = true;
-          const { error: sendError } = await signIn.emailCode.sendCode({
+          signInVerifyStepRef.current = "first_factor";
+          const { error: sendError } = await signIn!.emailCode.sendCode({
             emailAddress: email,
           });
           if (sendError) {
@@ -111,11 +194,11 @@ export function useAuthFlow(mode: AuthMode) {
         verifyWithSignInRef.current = false;
 
         const needsEmailVerification =
-          signUp.status === "missing_requirements" &&
-          signUp.unverifiedFields.includes("email_address");
+          signUp!.status === "missing_requirements" &&
+          signUp!.unverifiedFields.includes("email_address");
 
         if (needsEmailVerification) {
-          const { error: sendError } = await signUp.verifications.sendEmailCode();
+          const { error: sendError } = await signUp!.verifications.sendEmailCode();
           if (sendError) {
             return {
               ok: false as const,
@@ -124,8 +207,8 @@ export function useAuthFlow(mode: AuthMode) {
           }
         }
 
-        if (signUp.status === "complete" && signUp.createdSessionId) {
-          await activateSession(signUp.createdSessionId);
+        if (signUp!.status === "complete" && signUp!.createdSessionId) {
+          await activateSession(signUp!.createdSessionId);
           return { ok: true as const, completed: true };
         }
 
@@ -139,44 +222,79 @@ export function useAuthFlow(mode: AuthMode) {
     },
     [
       activateSession,
+      assertResourcesReady,
       mode,
       signIn,
       signUp,
-      signUpErrors.fields.emailAddress,
-      signUpErrors.fields.password,
     ],
   );
 
   const verifyEmailCode = useCallback(
     async (code: string) => {
-      try {
-        if (mode === "sign-in" || verifyWithSignInRef.current) {
-          const { error } = await signIn.emailCode.verifyCode({ code });
-          if (error) {
-            return {
-              ok: false as const,
-              codeError:
-                getClerkFieldMessage(signInErrors.fields.code) ||
-                error.message ||
-                "Invalid verification code",
-            };
-          }
+      const needsSignIn = mode === "sign-in" || verifyWithSignInRef.current;
+      const needsSignUp = mode === "sign-up" && !verifyWithSignInRef.current;
 
-          if (signIn.status === "needs_client_trust") {
-            const emailCodeFactor = signIn.supportedSecondFactors?.find(
+      try {
+        const guard = assertResourcesReady(needsSignIn, needsSignUp);
+        if (!guard.ok) {
+          return { ok: false as const, codeError: guard.message };
+        }
+
+        if (needsSignIn) {
+          if (signInVerifyStepRef.current === "mfa") {
+            const { error: mfaError } = await signIn!.mfa.verifyEmailCode({ code });
+            if (mfaError) {
+              return {
+                ok: false as const,
+                codeError: getReturnedErrorMessage(
+                  mfaError,
+                  "Invalid verification code",
+                ),
+              };
+            }
+          } else {
+            const { error } = await signIn!.emailCode.verifyCode({ code });
+            if (error) {
+              return {
+                ok: false as const,
+                codeError: getReturnedErrorMessage(
+                  error,
+                  getClerkFieldMessage(signInErrors.fields.code) ||
+                    "Invalid verification code",
+                ),
+              };
+            }
+
+            const needsMfa =
+              signIn!.status === "needs_client_trust" ||
+              signIn!.status === "needs_second_factor";
+            const emailCodeFactor = signIn!.supportedSecondFactors?.find(
               (factor) => factor.strategy === "email_code",
             );
-            if (emailCodeFactor) {
-              await signIn.mfa.sendEmailCode();
+
+            if (needsMfa && emailCodeFactor) {
+              const { error: sendMfaError } = await signIn!.mfa.sendEmailCode();
+              if (sendMfaError) {
+                return {
+                  ok: false as const,
+                  codeError: getReturnedErrorMessage(
+                    sendMfaError,
+                    "Could not send verification code",
+                  ),
+                };
+              }
+
+              signInVerifyStepRef.current = "mfa";
+              return {
+                ok: false as const,
+                codeError:
+                  "Enter the new verification code sent to your email to finish signing in.",
+              };
             }
-            return {
-              ok: false as const,
-              codeError: "Additional verification is required.",
-            };
           }
 
-          if (signIn.status === "complete") {
-            const activated = await activateSession(signIn.createdSessionId);
+          if (signIn!.status === "complete") {
+            const activated = await activateSession(signIn!.createdSessionId);
             if (activated) {
               return { ok: true as const };
             }
@@ -193,19 +311,20 @@ export function useAuthFlow(mode: AuthMode) {
           };
         }
 
-        const { error } = await signUp.verifications.verifyEmailCode({ code });
+        const { error } = await signUp!.verifications.verifyEmailCode({ code });
         if (error) {
           return {
             ok: false as const,
-            codeError:
+            codeError: getReturnedErrorMessage(
+              error,
               getClerkFieldMessage(signUpErrors.fields.code) ||
-              error.message ||
-              "Invalid verification code",
+                "Invalid verification code",
+            ),
           };
         }
 
-        if (signUp.status === "complete") {
-          const activated = await activateSession(signUp.createdSessionId);
+        if (signUp!.status === "complete") {
+          const activated = await activateSession(signUp!.createdSessionId);
           if (activated) {
             return { ok: true as const };
           }
@@ -240,6 +359,7 @@ export function useAuthFlow(mode: AuthMode) {
     },
     [
       activateSession,
+      assertResourcesReady,
       mode,
       signIn,
       signInErrors.fields.code,
@@ -250,6 +370,12 @@ export function useAuthFlow(mode: AuthMode) {
 
   const signInWithSocial = useCallback(
     async (provider: OAuthProvider) => {
+      const guard = assertResourcesReady(true, false);
+      if (!guard.ok) {
+        console.error("Social sign-in blocked:", guard.message);
+        return;
+      }
+
       try {
         const redirectUrl = Linking.createURL("oauth-callback");
         const { createdSessionId, setActive: setActiveFromSSO } = await startSSOFlow({
@@ -265,12 +391,13 @@ export function useAuthFlow(mode: AuthMode) {
         console.error("Social sign-in failed:", getClerkErrorMessage(error, "Sign-in failed"));
       }
     },
-    [router, startSSOFlow],
+    [assertResourcesReady, router, startSSOFlow],
   );
 
   return {
     isLoading,
-    isLoaded,
+    isAuthLoaded,
+    isResourcesLoaded,
     isSignedIn,
     startEmailVerification,
     verifyEmailCode,
