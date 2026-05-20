@@ -1,9 +1,10 @@
 import { useAuth, useClerk } from "@clerk/expo";
-import { Redirect, type Href } from "expo-router";
+import { Redirect, useRouter, type Href } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 export default function Index() {
+  const router = useRouter();
   const { isSignedIn, isLoaded } = useAuth();
   const { signOut } = useClerk();
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -56,6 +57,16 @@ export default function Index() {
       >
         <Text className="font-poppins-semibold text-base text-white">
           Continue learning
+        </Text>
+      </Pressable>
+
+      <Pressable
+        accessibilityRole="button"
+        className="rounded-xl border border-border px-6 py-3 active:opacity-90"
+        onPress={() => router.push("/choose-language")}
+      >
+        <Text className="font-poppins-semibold text-base text-ink">
+          Choose a language
         </Text>
       </Pressable>
 
