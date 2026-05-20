@@ -1,8 +1,10 @@
+import { useAuth } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { Redirect, useRouter, type Href } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   Text,
@@ -13,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { images } from "@/constants/images";
 import { languages } from "@/data/languages";
+import { useLanguageStore } from "@/store/language-store";
 import type { Language, LanguageId } from "@/types/learning";
 
 type LanguageListItemProps = {
@@ -59,8 +62,18 @@ function LanguageListItem({ language, isSelected, onPress }: LanguageListItemPro
 
 export default function ChooseLanguageScreen() {
   const router = useRouter();
+  const { isSignedIn, isLoaded } = useAuth();
+  const storedLanguageId = useLanguageStore((state) => state.selectedLanguageId);
+  const hasHydrated = useLanguageStore((state) => state.hasHydrated);
+  const setStoredLanguageId = useLanguageStore((state) => state.setSelectedLanguageId);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLanguageId, setSelectedLanguageId] = useState<LanguageId>("es");
+
+  useEffect(() => {
+    if (storedLanguageId) {
+      setSelectedLanguageId(storedLanguageId);
+    }
+  }, [storedLanguageId]);
 
   const filteredLanguages = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -75,8 +88,33 @@ export default function ChooseLanguageScreen() {
   }, [searchQuery]);
 
   const handleConfirm = () => {
-    router.back();
+    const hadLanguage = !!useLanguageStore.getState().selectedLanguageId;
+    setStoredLanguageId(selectedLanguageId);
+    if (hadLanguage) {
+      router.back();
+    } else {
+      router.replace("/");
+    }
   };
+
+  if (!isLoaded || !hasHydrated) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#ffffff",
+        }}
+      >
+        <ActivityIndicator size="large" color="#6338FF" />
+      </View>
+    );
+  }
+
+  if (!isSignedIn) {
+    return <Redirect href={"/onboarding" as Href} />;
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>

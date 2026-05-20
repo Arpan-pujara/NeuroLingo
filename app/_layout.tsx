@@ -1,3 +1,5 @@
+import "react-native-reanimated";
+
 import "../global.css";
 
 import { ClerkProvider } from "@clerk/expo";
