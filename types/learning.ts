@@ -30,6 +30,8 @@ export type Language = {
   learnerCountLabel: string;
 };
 
+export type LessonDisplayStatus = "completed" | "in_progress" | "not_started";
+
 export type Unit = {
   id: string;
   languageId: LanguageId;
@@ -39,6 +41,8 @@ export type Unit = {
   level: ProficiencyLevel;
   /** Ordered lesson ids in this unit */
   lessonIds: string[];
+  /** Key into constants/images lessonHero map */
+  heroImageKey?: string;
 };
 
 export type VocabularyItem = {
@@ -103,4 +107,6 @@ export type Lesson = {
   phrases: Phrase[];
   activities: Activity[];
   aiTeacher: AITeacherPrompt;
+  /** Key into constants/images lessonCard map */
+  cardImageKey?: string;
 };

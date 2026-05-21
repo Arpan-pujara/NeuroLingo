@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { images } from "@/constants/images";
+import { posthog } from "@/lib/posthog";
 
 const SPEECH_BUBBLE = {
   hello: { bg: "#E3EEFF", text: "#0D132B" },
@@ -252,7 +253,10 @@ export default function OnboardingScreen() {
           <Pressable
             accessibilityRole="button"
             className="flex-row items-center justify-center rounded-full bg-lingua-purple py-4 active:opacity-90"
-            onPress={() => router.push("/sign-up")}
+            onPress={() => {
+              posthog.capture("onboarding_get_started_clicked");
+              router.push("/sign-up");
+            }}
           >
             <Text className="font-poppins-bold text-base text-white">
               Get Started
