@@ -37,7 +37,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
   const visibleActiveIndex = visibleRoutes.findIndex(
     (route) => route.key === state.routes[state.index]?.key,
   );
-  const activeIndex = visibleActiveIndex >= 0 ? visibleActiveIndex : state.index;
+  const activeIndex = visibleActiveIndex >= 0 ? visibleActiveIndex : 0;
 
   useEffect(() => {
     if (tabWidth.value <= 0) return;

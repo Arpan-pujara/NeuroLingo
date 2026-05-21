@@ -1,6 +1,7 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+
+import { createPersistStorage } from "@/lib/persist-storage";
 
 const STORAGE_KEY = "neurolingo-progress";
 
@@ -25,7 +26,12 @@ export const useProgressStore = create<ProgressStoreState>()(
       dailyXp: 15,
       dailyGoalXp: 20,
       streak: 12,
-      completedLessonIds: ["es-lesson-1"],
+      completedLessonIds: [
+        "es-lesson-1",
+        "es-lesson-2",
+        "es-u3-lesson-1",
+        "es-u3-lesson-2",
+      ],
       completedPlanStepIds: ["lesson"],
       hasHydrated: false,
       addDailyXp: (amount) =>
@@ -46,7 +52,7 @@ export const useProgressStore = create<ProgressStoreState>()(
     }),
     {
       name: STORAGE_KEY,
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => createPersistStorage()),
       partialize: (state) => ({
         dailyXp: state.dailyXp,
         dailyGoalXp: state.dailyGoalXp,

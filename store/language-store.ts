@@ -1,7 +1,7 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { createPersistStorage, removePersistedItem } from "@/lib/persist-storage";
 import type { LanguageId } from "@/types/learning";
 
 const STORAGE_KEY = "neurolingo-language";
@@ -25,7 +25,7 @@ export const useLanguageStore = create<LanguageStoreState>()(
     }),
     {
       name: STORAGE_KEY,
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => createPersistStorage()),
       partialize: (state) => ({
         selectedLanguageId: state.selectedLanguageId,
       }),
@@ -40,7 +40,7 @@ export const useLanguageStore = create<LanguageStoreState>()(
 );
 
 export async function clearLanguageStorageForTesting(): Promise<void> {
-  await AsyncStorage.removeItem(STORAGE_KEY);
+  await removePersistedItem(STORAGE_KEY);
   useLanguageStore.persist.clearStorage();
   useLanguageStore.setState({
     selectedLanguageId: null,

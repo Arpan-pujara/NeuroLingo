@@ -1,5 +1,5 @@
 import { getLanguageById } from "@/data/languages";
-import { getLessonsByLanguage } from "@/data/lessons";
+import { getLessonsByLanguage, getLessonsByUnit } from "@/data/lessons";
 import { getUnitsByLanguage } from "@/data/units";
 import type { PlanStepId } from "@/store/progress-store";
 import type { Language, LanguageId, Lesson, ProficiencyLevel, Unit } from "@/types/learning";
@@ -26,6 +26,7 @@ export type HomeLearningContext = {
 const LESSON_PLAN_SUBTITLES: Partial<Record<string, string>> = {
   "es-lesson-1": "Hello & Goodbye",
   "es-lesson-2": "Please & Thank You",
+  "es-u3-lesson-3": "At the Café",
   "fr-lesson-1": "Bonjour Basics",
   "zh-lesson-1": "你好 & Essentials",
 };
@@ -67,17 +68,23 @@ function resolveCurrentLesson(
   languageId: LanguageId,
   completedLessonIds: string[],
 ): Lesson | undefined {
-  const lessons = getLessonsByLanguage(languageId);
-  if (lessons.length === 0) return undefined;
-
+  const units = getUnitsByLanguage(languageId);
   const completedForLanguage = getCompletedLessonsForLanguage(
     languageId,
     completedLessonIds,
   );
-  const nextLesson = lessons.find(
-    (lesson) => !completedForLanguage.includes(lesson.id),
-  );
-  return nextLesson ?? lessons[lessons.length - 1];
+
+  for (const unit of units) {
+    const unitLessons = getLessonsByUnit(unit.id);
+    const nextInUnit = unitLessons.find(
+      (lesson) => !completedForLanguage.includes(lesson.id),
+    );
+    if (nextInUnit) return nextInUnit;
+  }
+
+  const lessons = getLessonsByLanguage(languageId);
+  if (lessons.length === 0) return undefined;
+  return lessons[lessons.length - 1];
 }
 
 const GREETING_BY_LANGUAGE: Record<LanguageId, string> = {

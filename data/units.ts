@@ -9,6 +9,24 @@ export const units: Unit[] = [
     description: "Say hello, goodbye, and polite phrases in Spanish.",
     level: "beginner",
     lessonIds: ["es-lesson-1", "es-lesson-2"],
+    heroImageKey: "mascotWelcome",
+  },
+  {
+    id: "es-unit-3",
+    languageId: "es",
+    order: 3,
+    title: "At the Café",
+    description: "Order drinks, ask for the check, and chat at a café.",
+    level: "beginner",
+    lessonIds: [
+      "es-u3-lesson-1",
+      "es-u3-lesson-2",
+      "es-u3-lesson-3",
+      "es-u3-lesson-4",
+      "es-u3-lesson-5",
+      "es-u3-lesson-6",
+    ],
+    heroImageKey: "mascotHeroCafe",
   },
   {
     id: "fr-unit-1",
@@ -17,7 +35,15 @@ export const units: Unit[] = [
     title: "Greetings",
     description: "Master bonjour, merci, and other French essentials.",
     level: "beginner",
-    lessonIds: ["fr-lesson-1"],
+    lessonIds: [
+      "fr-lesson-1",
+      "fr-lesson-2",
+      "fr-lesson-3",
+      "fr-lesson-4",
+      "fr-lesson-5",
+      "fr-lesson-6",
+    ],
+    heroImageKey: "palace",
   },
   {
     id: "zh-unit-1",
@@ -26,7 +52,15 @@ export const units: Unit[] = [
     title: "Greetings",
     description: "Learn 你好, 谢谢, and tone-friendly introductions.",
     level: "beginner",
-    lessonIds: ["zh-lesson-1"],
+    lessonIds: [
+      "zh-lesson-1",
+      "zh-lesson-2",
+      "zh-lesson-3",
+      "zh-lesson-4",
+      "zh-lesson-5",
+      "zh-lesson-6",
+    ],
+    heroImageKey: "earth",
   },
 ];
 
