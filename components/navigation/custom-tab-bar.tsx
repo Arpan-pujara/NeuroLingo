@@ -30,7 +30,14 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
   const indicatorX = useSharedValue(0);
   const tabWidth = useSharedValue(0);
 
-  const activeIndex = state.index;
+  const visibleRoutes = state.routes.filter((route) =>
+    TAB_ITEMS.some((tab) => tab.route === route.name),
+  );
+  const tabCount = Math.max(visibleRoutes.length, 1);
+  const visibleActiveIndex = visibleRoutes.findIndex(
+    (route) => route.key === state.routes[state.index]?.key,
+  );
+  const activeIndex = visibleActiveIndex >= 0 ? visibleActiveIndex : state.index;
 
   useEffect(() => {
     if (tabWidth.value <= 0) return;
@@ -69,7 +76,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
       style={{ paddingBottom: Math.max(insets.bottom, 8) }}
       onLayout={(event) => {
         const width = event.nativeEvent.layout.width;
-        const nextTabWidth = width / TAB_ITEMS.length;
+        const nextTabWidth = width / tabCount;
         tabWidth.value = nextTabWidth;
 
         const offset =

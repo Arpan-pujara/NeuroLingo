@@ -25,14 +25,14 @@ export type HomeLearningContext = {
 
 const LESSON_PLAN_SUBTITLES: Partial<Record<string, string>> = {
   "es-lesson-1": "Hello & Goodbye",
-  "es-lesson-2": "At the café",
+  "es-lesson-2": "Please & Thank You",
   "fr-lesson-1": "Bonjour Basics",
   "zh-lesson-1": "你好 & Essentials",
 };
 
 const AI_CONVERSATION_SUBTITLES: Partial<Record<string, string>> = {
   "es-lesson-1": "Talk about your day",
-  "es-lesson-2": "Order at the café",
+  "es-lesson-2": "Polite expressions & short dialogues",
   "fr-lesson-1": "Introduce yourself",
   "zh-lesson-1": "Say hello in Mandarin",
 };
@@ -66,8 +66,10 @@ function getCompletedLessonsForLanguage(
 function resolveCurrentLesson(
   languageId: LanguageId,
   completedLessonIds: string[],
-): Lesson {
+): Lesson | undefined {
   const lessons = getLessonsByLanguage(languageId);
+  if (lessons.length === 0) return undefined;
+
   const completedForLanguage = getCompletedLessonsForLanguage(
     languageId,
     completedLessonIds,
@@ -76,6 +78,17 @@ function resolveCurrentLesson(
     (lesson) => !completedForLanguage.includes(lesson.id),
   );
   return nextLesson ?? lessons[lessons.length - 1];
+}
+
+const GREETING_BY_LANGUAGE: Record<LanguageId, string> = {
+  es: "Hola",
+  fr: "Bonjour",
+  zh: "你好",
+};
+
+export function getHomeGreeting(languageId: LanguageId, firstName: string): string {
+  const greeting = GREETING_BY_LANGUAGE[languageId] ?? "Hello";
+  return `${greeting}, ${firstName}! 👋`;
 }
 
 export function getHomeLearningContext(
@@ -88,6 +101,8 @@ export function getHomeLearningContext(
 
   const units = getUnitsByLanguage(languageId);
   const currentLesson = resolveCurrentLesson(languageId, completedLessonIds);
+  if (!currentLesson) return null;
+
   const currentUnit =
     units.find((unit) => unit.lessonIds.includes(currentLesson.id)) ?? units[0];
 

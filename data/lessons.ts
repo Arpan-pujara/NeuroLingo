@@ -120,9 +120,11 @@ export const lessons: Lesson[] = [
     phrases: [
       {
         id: "es-p-gracias-por-favor",
-        text: "Gracias, por favor.",
-        translation: "Thank you, please.",
-        context: "Polite phrases often used together in daily life.",
+        text: "Un café, por favor.",
+        translation: "A coffee, please.",
+        pronunciation: "oon kah-FEH, por fah-VOR",
+        context:
+          "Use por favor at the end of a request to sound polite, especially when ordering at a café.",
       },
     ],
     activities: [
@@ -144,7 +146,7 @@ export const lessons: Lesson[] = [
         id: "es-a2-phrase",
         type: "phrase_practice",
         title: "Say it naturally",
-        instructions: "Practice using gracias in a short exchange.",
+        instructions: "Practice a short polite request with por favor.",
         phraseIds: ["es-p-gracias-por-favor"],
       },
     ],

@@ -2,20 +2,20 @@ import { useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AI_TEACHER_AVATAR_URI, images } from "@/constants/images";
-import { getHomeLearningContext, type TodaysPlanItem } from "@/lib/home-data";
+import {
+  getHomeGreeting,
+  getHomeLearningContext,
+  type TodaysPlanItem,
+} from "@/lib/home-data";
+import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/language-store";
 import { useProgressStore } from "@/store/progress-store";
+
+const safeAreaStyle = { flex: 1, backgroundColor: "#ffffff" } as const;
 
 function HomeHeader({
   flagUri,
@@ -31,14 +31,18 @@ function HomeHeader({
       <View className="flex-row items-center">
         <Image
           source={{ uri: flagUri }}
-          style={styles.flagAvatar}
+          className="h-11 w-11 rounded-full"
           contentFit="cover"
         />
         <Text className="ml-3 font-poppins-bold text-xl text-ink">{greeting}</Text>
       </View>
       <View className="flex-row items-center gap-3">
         <View className="flex-row items-center gap-1">
-          <Image source={images.streakFire} style={styles.streakIcon} contentFit="contain" />
+          <Image
+            source={images.streakFire}
+            className="h-[22px] w-[22px]"
+            contentFit="contain"
+          />
           <Text className="font-poppins-semibold text-base text-ink">{streak}</Text>
         </View>
         <Pressable
@@ -61,7 +65,8 @@ function DailyGoalCard({
   dailyXp: number;
   dailyGoalXp: number;
 }) {
-  const progress = Math.min(dailyXp / dailyGoalXp, 1);
+  const progress =
+    dailyGoalXp > 0 ? Math.min(Math.max(dailyXp / dailyGoalXp, 0), 1) : 0;
 
   return (
     <View className="mt-5 flex-row items-center overflow-hidden rounded-3xl bg-[#FFF9F0] px-5 py-4">
@@ -80,7 +85,7 @@ function DailyGoalCard({
           />
         </View>
       </View>
-      <Image source={images.treasure} style={styles.treasureImage} contentFit="contain" />
+      <Image source={images.treasure} className="h-[88px] w-[88px]" contentFit="contain" />
     </View>
   );
 }
@@ -119,7 +124,7 @@ function ContinueLearningCard({
             <Text className="font-poppins-semibold text-sm text-lingua-purple">Continue</Text>
           </Pressable>
         </View>
-        <Image source={images.palace} style={styles.palaceImage} contentFit="contain" />
+        <Image source={images.palace} className="h-[120px] w-[120px]" contentFit="contain" />
       </View>
     </View>
   );
@@ -190,7 +195,7 @@ function NextUpCard() {
       <View className="relative h-[72px] w-[72px]">
         <Image
           source={{ uri: AI_TEACHER_AVATAR_URI }}
-          style={styles.teacherAvatar}
+          className="h-[72px] w-[72px] rounded-full"
           contentFit="cover"
         />
         <View className="absolute -bottom-0.5 -right-0.5 h-9 w-9 items-center justify-center rounded-full bg-lingua-green shadow-sm">
@@ -225,11 +230,14 @@ export default function HomeScreen() {
       : null;
 
   const firstName = user?.firstName?.trim() || "Learner";
-  const greeting = `Hola, ${firstName}! 👋`;
+  const greeting =
+    selectedLanguageId != null
+      ? getHomeGreeting(selectedLanguageId, firstName)
+      : `Hello, ${firstName}! 👋`;
 
   if (!isReady) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={safeAreaStyle}>
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#6C4EF5" />
         </View>
@@ -239,7 +247,7 @@ export default function HomeScreen() {
 
   if (!learningContext) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={safeAreaStyle}>
         <View className="flex-1 items-center justify-center px-6">
           <Text className="typ-h3 text-center text-ink">Choose a language to get started</Text>
           <Pressable
@@ -257,17 +265,20 @@ export default function HomeScreen() {
   const { language, continueSubtitle, todaysPlan } = learningContext;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView style={safeAreaStyle} edges={["top"]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 }}
       >
         <HomeHeader flagUri={language.flag} greeting={greeting} streak={streak} />
         <DailyGoalCard dailyXp={dailyXp} dailyGoalXp={dailyGoalXp} />
         <ContinueLearningCard
           languageName={language.name}
           levelLabel={continueSubtitle}
-          onContinue={() => router.push("/learn")}
+          onContinue={() => {
+              posthog.capture("continue_learning_pressed", { language_id: language.id });
+              router.push("/learn");
+            }}
         />
         <TodaysPlanSection items={todaysPlan} />
         <NextUpCard />
@@ -275,37 +286,3 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 24,
-  },
-  flagAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  streakIcon: {
-    width: 22,
-    height: 22,
-  },
-  treasureImage: {
-    width: 88,
-    height: 88,
-  },
-  palaceImage: {
-    width: 120,
-    height: 120,
-  },
-  teacherAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-  },
-});

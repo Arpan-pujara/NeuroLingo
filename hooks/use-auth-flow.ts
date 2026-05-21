@@ -11,6 +11,7 @@ import * as Linking from "expo-linking";
 import { useCallback, useEffect, useRef } from "react";
 
 import { getClerkErrorMessage } from "@/lib/clerk-errors";
+import { posthog } from "@/lib/posthog";
 import "@/lib/oauth";
 
 export type AuthMode = "sign-in" | "sign-up";
@@ -71,6 +72,7 @@ export function useAuthFlow(mode: AuthMode) {
   const { startSSOFlow } = useSSO();
   const verifyWithSignInRef = useRef(false);
   const signInVerifyStepRef = useRef<"first_factor" | "mfa">("first_factor");
+  const pendingEmailRef = useRef<string>("");
 
   const signIn = signInState.signIn;
   const signUp = signUpState.signUp;
@@ -113,12 +115,22 @@ export function useAuthFlow(mode: AuthMode) {
   );
 
   const activateSession = useCallback(
-    async (sessionId: string | null | undefined) => {
+    async (sessionId: string | null | undefined, email?: string, authMode?: AuthMode) => {
       if (!sessionId) {
         return false;
       }
 
       await setActive({ session: sessionId });
+
+      if (email) {
+        posthog.identify(email, { $set: { email } });
+      }
+      if (authMode === "sign-up") {
+        posthog.capture("sign_up_completed", { method: "email" });
+      } else {
+        posthog.capture("sign_in_completed", { method: "email" });
+      }
+
       router.replace("/" as Href);
       return true;
     },
@@ -128,6 +140,8 @@ export function useAuthFlow(mode: AuthMode) {
   const startEmailVerification = useCallback(
     async (email: string, password?: string) => {
       try {
+        pendingEmailRef.current = email;
+
         if (mode === "sign-in") {
           const guard = assertResourcesReady(true, false);
           if (!guard.ok) {
@@ -208,7 +222,7 @@ export function useAuthFlow(mode: AuthMode) {
         }
 
         if (signUp!.status === "complete" && signUp!.createdSessionId) {
-          await activateSession(signUp!.createdSessionId);
+          await activateSession(signUp!.createdSessionId, email, "sign-up");
           return { ok: true as const, completed: true };
         }
 
@@ -294,7 +308,7 @@ export function useAuthFlow(mode: AuthMode) {
           }
 
           if (signIn!.status === "complete") {
-            const activated = await activateSession(signIn!.createdSessionId);
+            const activated = await activateSession(signIn!.createdSessionId, pendingEmailRef.current, "sign-in");
             if (activated) {
               return { ok: true as const };
             }
@@ -324,7 +338,7 @@ export function useAuthFlow(mode: AuthMode) {
         }
 
         if (signUp!.status === "complete") {
-          const activated = await activateSession(signUp!.createdSessionId);
+          const activated = await activateSession(signUp!.createdSessionId, pendingEmailRef.current, "sign-up");
           if (activated) {
             return { ok: true as const };
           }
@@ -385,6 +399,7 @@ export function useAuthFlow(mode: AuthMode) {
 
         if (createdSessionId && setActiveFromSSO) {
           await setActiveFromSSO({ session: createdSessionId });
+          posthog.capture("social_auth_completed", { provider });
           router.replace("/" as Href);
         }
       } catch (error) {

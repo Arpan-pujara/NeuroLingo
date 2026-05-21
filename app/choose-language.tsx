@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { images } from "@/constants/images";
 import { languages } from "@/data/languages";
+import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/language-store";
 import type { Language, LanguageId } from "@/types/learning";
 
@@ -89,6 +90,10 @@ export default function ChooseLanguageScreen() {
 
   const handleConfirm = () => {
     const hadLanguage = !!useLanguageStore.getState().selectedLanguageId;
+    posthog.capture("language_selected", {
+      language_id: selectedLanguageId,
+      is_first_selection: !hadLanguage,
+    });
     setStoredLanguageId(selectedLanguageId);
     if (hadLanguage) {
       router.back();

@@ -54,11 +54,11 @@ export const useProgressStore = create<ProgressStoreState>()(
         completedLessonIds: state.completedLessonIds,
         completedPlanStepIds: state.completedPlanStepIds,
       }),
-      onRehydrateStorage: () => (state, error) => {
+      onRehydrateStorage: () => (_state, error) => {
         if (error) {
           console.error("Failed to rehydrate progress store", error);
         }
-        state?.setHasHydrated(true);
+        useProgressStore.setState({ hasHydrated: true });
       },
     },
   ),
