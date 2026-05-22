@@ -44,3 +44,6 @@ app-example
 
 *.env
 .env
+
+# Python vision agent
+vision-agent/.venv/

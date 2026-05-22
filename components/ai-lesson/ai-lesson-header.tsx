@@ -3,10 +3,25 @@ import { Pressable, Text, View } from "react-native";
 
 type AiLessonHeaderProps = {
   streak: number;
+  statusLabel?: string;
+  statusTone?: "online" | "connecting" | "muted" | "error" | "ended";
   onBack: () => void;
 };
 
-export function AiLessonHeader({ streak, onBack }: AiLessonHeaderProps) {
+const STATUS_DOT: Record<NonNullable<AiLessonHeaderProps["statusTone"]>, string> = {
+  online: "bg-lingua-green",
+  connecting: "bg-streak",
+  muted: "bg-lingua-purple",
+  error: "bg-error",
+  ended: "bg-ink-secondary",
+};
+
+export function AiLessonHeader({
+  streak,
+  statusLabel = "Online",
+  statusTone = "online",
+  onBack,
+}: AiLessonHeaderProps) {
   return (
     <View className="flex-row items-center px-5 pb-3 pt-1">
       <Pressable
@@ -22,8 +37,10 @@ export function AiLessonHeader({ streak, onBack }: AiLessonHeaderProps) {
       <View className="ml-1 flex-1">
         <Text className="font-poppins-bold text-xl text-ink">AI Teacher</Text>
         <View className="mt-0.5 flex-row items-center">
-          <View className="mr-1.5 h-2 w-2 rounded-full bg-lingua-green" />
-          <Text className="font-poppins text-sm text-ink-secondary">Online</Text>
+          <View className={`mr-1.5 h-2 w-2 rounded-full ${STATUS_DOT[statusTone]}`} />
+          <Text className="font-poppins text-sm text-ink-secondary" numberOfLines={1}>
+            {statusLabel}
+          </Text>
         </View>
       </View>
 
