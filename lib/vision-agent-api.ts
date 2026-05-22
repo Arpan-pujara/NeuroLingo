@@ -9,6 +9,7 @@ type StartAgentSessionInput = {
 
 type StopAgentSessionInput = {
   callId: string;
+  callType: string;
   sessionId: string;
 };
 

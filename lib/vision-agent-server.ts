@@ -4,6 +4,8 @@ export type VisionAgentSessionResponse = {
   session_started_at?: string;
 };
 
+const VISION_AGENT_TIMEOUT_MS = 30_000;
+
 function visionAgentBaseUrl(): string {
   const explicit = process.env.VISION_AGENT_URL?.trim();
   if (explicit) return explicit.replace(/\/$/, "");
@@ -22,11 +24,30 @@ async function parseVisionAgentError(response: Response): Promise<string> {
   }
 }
 
+async function fetchVisionAgent(
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), VISION_AGENT_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Vision agent request timed out.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function startVisionAgentSession(
   callId: string,
   callType: string,
 ): Promise<VisionAgentSessionResponse> {
-  const response = await fetch(
+  const response = await fetchVisionAgent(
     `${visionAgentBaseUrl()}/calls/${encodeURIComponent(callId)}/sessions`,
     {
       method: "POST",
@@ -46,7 +67,7 @@ export async function stopVisionAgentSession(
   callId: string,
   sessionId: string,
 ): Promise<void> {
-  const response = await fetch(
+  const response = await fetchVisionAgent(
     `${visionAgentBaseUrl()}/calls/${encodeURIComponent(callId)}/sessions/${encodeURIComponent(sessionId)}`,
     { method: "DELETE" },
   );

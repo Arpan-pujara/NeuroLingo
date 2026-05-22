@@ -8,6 +8,11 @@ type TokenRequestBody = {
 
 export async function POST(request: Request) {
   try {
+    const apiKey = process.env.STREAM_API_KEY;
+    if (!apiKey) {
+      return Response.json({ error: "STREAM_API_KEY is not configured." }, { status: 500 });
+    }
+
     const userId = await requireClerkUserId(request);
     const body = (await request.json().catch(() => ({}))) as TokenRequestBody;
 
@@ -25,11 +30,6 @@ export async function POST(request: Request) {
       user_id: userId,
       validity_in_seconds: 60 * 60,
     });
-
-    const apiKey = process.env.STREAM_API_KEY;
-    if (!apiKey) {
-      return Response.json({ error: "STREAM_API_KEY is not configured." }, { status: 500 });
-    }
 
     return Response.json({ token, apiKey, userId });
   } catch (error) {

@@ -29,7 +29,10 @@ export async function requireClerkUserId(request: Request): Promise<string> {
       throw unauthorizedResponse("Invalid session token.");
     }
     return payload.sub;
-  } catch {
+  } catch (error) {
+    if (error instanceof Response) {
+      throw error;
+    }
     throw unauthorizedResponse("Invalid or expired session token.");
   }
 }

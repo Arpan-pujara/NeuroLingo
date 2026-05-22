@@ -1,4 +1,6 @@
+import { parseJsonBody } from "@/lib/api-request";
 import { requireClerkUserId } from "@/lib/clerk-api-auth";
+import { isLanguageId } from "@/lib/learning-validation";
 import type { LessonCallCustomData } from "@/lib/lesson-call-custom";
 import {
   buildLessonCallCid,
@@ -12,8 +14,6 @@ import {
   LESSON_SPEAKER_ROLE,
 } from "@/lib/stream-call-permissions";
 import { getStreamServerClient } from "@/lib/stream-server";
-import type { LanguageId } from "@/types/learning";
-
 type CallRequestBody = LessonCallCustomData & {
   userDisplayName?: string;
   userImageUrl?: string;
@@ -22,14 +22,14 @@ type CallRequestBody = LessonCallCustomData & {
 export async function POST(request: Request) {
   try {
     const userId = await requireClerkUserId(request);
-    const body = (await request.json()) as CallRequestBody;
+    const body = await parseJsonBody<CallRequestBody>(request);
 
     const lessonId = body.lessonId?.trim();
-    const languageId = body.languageId as LanguageId | undefined;
+    const languageId = body.languageId;
 
-    if (!lessonId || !languageId) {
+    if (!lessonId || !isLanguageId(languageId)) {
       return Response.json(
-        { error: "lessonId and languageId are required." },
+        { error: "lessonId and a valid languageId (es, fr, zh) are required." },
         { status: 400 },
       );
     }

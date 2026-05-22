@@ -112,6 +112,7 @@ export function useStreamAudioLesson(
   const startingRef = useRef(false);
   const hasJoinedRef = useRef(false);
   const endingRef = useRef(false);
+  const bootstrappedRef = useRef(false);
 
   const localUser: AudioLessonParticipantInfo | null = user
     ? {
@@ -143,14 +144,20 @@ export function useStreamAudioLesson(
     participants,
   });
 
-  const syncParticipants = useCallback((activeCall: Call) => {
-    const remote = activeCall.state.participants.map((participant) => ({
-      id: participant.userId,
-      name: participant.name ?? "Tutor",
-      imageUrl: participant.image,
-    }));
-    setParticipants(remote);
-  }, []);
+  const syncParticipants = useCallback(
+    (activeCall: Call) => {
+      const localId = activeCall.state.localParticipant?.userId ?? user?.id;
+      const remote = activeCall.state.participants
+        .filter((participant) => participant.userId !== localId)
+        .map((participant) => ({
+          id: participant.userId,
+          name: participant.name ?? "Tutor",
+          imageUrl: participant.image,
+        }));
+      setParticipants(remote);
+    },
+    [user?.id],
+  );
 
   const startCall = useCallback(async () => {
     if (!context || startingRef.current || manuallyEnded) return;
@@ -201,13 +208,7 @@ export function useStreamAudioLesson(
         tokenProvider,
       });
 
-      clientRef.current = videoClient;
       const lessonCall = videoClient.call(session.callType, session.callId);
-      callRef.current = lessonCall;
-
-      setStatus("connecting");
-      setClient(videoClient);
-      setCall(lessonCall);
 
       callManager.start({
         audioRole: "communicator",
@@ -218,6 +219,11 @@ export function useStreamAudioLesson(
       await lessonCall.camera.disable();
       setMicEnabled(true);
       hasJoinedRef.current = true;
+
+      clientRef.current = videoClient;
+      callRef.current = lessonCall;
+      setClient(videoClient);
+      setCall(lessonCall);
       setPreparedCallId(session.callId);
 
       posthog.capture("audio_lesson_call_joined", {
@@ -229,8 +235,19 @@ export function useStreamAudioLesson(
 
       syncParticipants(lessonCall);
     } catch (startError) {
+      const failedClient = clientRef.current;
+      const failedCall = callRef.current;
+      clientRef.current = null;
+      callRef.current = null;
       setPreparedCallId(null);
       hasJoinedRef.current = false;
+      setCall(null);
+      setClient(null);
+      setParticipants([]);
+      await leaveCallIfJoined(failedCall).catch(() => undefined);
+      if (failedClient) {
+        await failedClient.disconnectUser().catch(() => undefined);
+      }
       const message =
         startError instanceof Error
           ? startError.message
@@ -332,6 +349,10 @@ export function useStreamAudioLesson(
   }, [call, syncParticipants]);
 
   useEffect(() => {
+    if (startingRef.current) {
+      setStatus("loading");
+      return;
+    }
     const micMuted = !micEnabled;
     const nextStatus = mapCallingStateToStatus(
       callingState,
@@ -344,10 +365,15 @@ export function useStreamAudioLesson(
   }, [callingState, micEnabled, error, manuallyEnded]);
 
   useEffect(() => {
-    if (!context || !isAuthLoaded || !isUserLoaded) return;
-    if (status !== "idle" || manuallyEnded) return;
+    bootstrappedRef.current = false;
+  }, [context?.lesson.id]);
+
+  useEffect(() => {
+    if (!context || !isAuthLoaded || !isUserLoaded || manuallyEnded) return;
+    if (bootstrappedRef.current) return;
+    bootstrappedRef.current = true;
     void startCall();
-  }, [context, isAuthLoaded, isUserLoaded, manuallyEnded, startCall, status]);
+  }, [context, isAuthLoaded, isUserLoaded, manuallyEnded, startCall]);
 
   const stopAgentRef = useRef(stopAgent);
   stopAgentRef.current = stopAgent;

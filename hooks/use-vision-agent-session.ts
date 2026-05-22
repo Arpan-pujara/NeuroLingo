@@ -77,6 +77,7 @@ export function useVisionAgentSession({
     try {
       await stopVisionAgentLesson(getClerkToken, {
         callId: activeCallId,
+        callType: STREAM_AUDIO_CALL_TYPE,
         sessionId,
       });
     } catch (stopError) {
@@ -103,6 +104,7 @@ export function useVisionAgentSession({
       if (previousSessionId && callId) {
         await stopVisionAgentLesson(getClerkToken, {
           callId,
+          callType: STREAM_AUDIO_CALL_TYPE,
           sessionId: previousSessionId,
         });
       }
